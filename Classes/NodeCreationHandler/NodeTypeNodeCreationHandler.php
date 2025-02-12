@@ -5,6 +5,7 @@ namespace JvMTECH\ContentSubgroups\NodeCreationHandler;
 
 use Neos\Flow\Annotations as Flow;
 use Neos\ContentRepository\Domain\Model\NodeInterface;
+use Neos\ContentRepository\Domain\Service\NodeServiceInterface;
 use Neos\ContentRepository\Domain\Service\NodeTypeManager;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
 use Neos\Neos\Ui\NodeCreationHandler\NodeCreationHandlerInterface;
@@ -19,10 +20,16 @@ class NodeTypeNodeCreationHandler implements NodeCreationHandlerInterface
     protected NodeTypeManager $nodeTypeManager;
 
     /**
-     * @var ObjectManagerInterface
      * @Flow\Inject
+     * @var ObjectManagerInterface
      */
     protected $objectManager;
+
+    /**
+     * @Flow\Inject
+     * @var NodeServiceInterface
+     */
+    protected $nodeService;
 
     /**
      * @param NodeInterface $node The newly created node
@@ -46,7 +53,9 @@ class NodeTypeNodeCreationHandler implements NodeCreationHandlerInterface
 
             if ($targetNodeTypeName) {
                 $nodeType = $this->nodeTypeManager->getNodeType($targetNodeTypeName);
+                $oldNodeType = $node->getNodeType();
                 $node->setNodeType($nodeType);
+                $this->nodeService->createChildNodes($node);
 
                 // Handle other node creation handlers
                 if (isset($node->getNodeType()->getFullConfiguration()['options']['nodeCreationHandlers'])) {
@@ -86,6 +95,9 @@ class NodeTypeNodeCreationHandler implements NodeCreationHandlerInterface
                         }
                     }
                 }
+
+                $this->nodeService->cleanUpProperties($node);
+                $this->nodeService->cleanUpAutoCreatedChildNodes($node, $oldNodeType);
             }
         }
     }
