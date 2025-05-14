@@ -66,8 +66,11 @@ class TargetNodeTypesDataSource extends AbstractDataSource
             return [
                 'label' => $this->translationHelper->translate($nodeType->getLabel()) ?: $nodeType->getLabel(),
                 'tag' => Arrays::getValueByPath($nodeType->getProperties(), 'targetNodeTypeName.ui.inspector.editorOptions.dataSourceAdditionalData.contentSubgroup'),
+                'position' => $nodeType->getConfiguration('ui.position'),
             ];
         }, $groupNodeTypes);
+        $sorterGroup = new PositionalArraySorter($groupNodeTypes);
+        $groupNodeTypes = $sorterGroup->toArray();
 
         // Use tag as array key...
 
@@ -101,12 +104,14 @@ class TargetNodeTypesDataSource extends AbstractDataSource
         $sorterSubNodeTypes = new PositionalArraySorter($subNodeTypes);
         $subNodeTypes = $sorterSubNodeTypes->toArray();
 
-        // Create select options...
-
-        $groupedOptions = [];
+        // Create groups with placeholder if no group is set
+        // Create groups to have to order of the groups correctly
+        foreach ($groups as $tag => $group) {
+            $groupedOptions[$tag] = [];
+        }
         foreach ($subNodeTypes as $subNodeType) {
             foreach ($subNodeType['tags'] as $tag) {
-                $groupedOptions[] = [
+                $groupedOptions[$tag][] = [
                     'label' => $subNodeType['label'],
                     'value' => $subNodeType['value'],
                     'icon' => $subNodeType['icon'],
@@ -115,7 +120,14 @@ class TargetNodeTypesDataSource extends AbstractDataSource
             }
         }
 
-        return $groupedOptions;
+        // Create select options by extracting sub elements to the parent level
+        $resultArray= [];
+        foreach ($groupedOptions as $groupedOption) {
+            foreach ($groupedOption as $option) {
+                $resultArray[] = $option;
+            }
+        }
+        return $resultArray;
     }
 
     /**
