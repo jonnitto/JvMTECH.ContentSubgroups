@@ -11,6 +11,7 @@ use Neos\Neos\Service\DataSource\AbstractDataSource;
 use Neos\ContentRepository\Domain\Model\NodeInterface;
 use Neos\Neos\Service\IconNameMappingService;
 use Neos\Utility\Arrays;
+use Neos\Utility\PositionalArraySorter;
 
 class TargetNodeTypesDataSource extends AbstractDataSource
 {
@@ -93,8 +94,12 @@ class TargetNodeTypesDataSource extends AbstractDataSource
                 'value' => $nodeType->getName(),
                 'tags' => Arrays::getValueByPath($nodeType->getOptions(), 'contentSubgroup.tags') ?: [],
                 'icon' => $this->iconNameMappingService->convert($nodeType->getConfiguration('ui.icon')),
+                'position' => $nodeType->getConfiguration('ui.position'),
             ];
         }, $subNodeTypes);
+        // Sort subNodeTypes by position
+        $sorterSubNodeTypes = new PositionalArraySorter($subNodeTypes);
+        $subNodeTypes = $sorterSubNodeTypes->toArray();
 
         // Create select options...
 
