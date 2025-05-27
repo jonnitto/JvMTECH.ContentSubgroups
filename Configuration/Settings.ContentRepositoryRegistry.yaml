@@ -1,0 +1,7 @@
+Neos:
+  ContentRepositoryRegistry:
+    presets:
+      'default':
+        commandHooks:
+          'JvMTECH.ContentSubgroups:MigrateNodeProperties':
+            factoryObjectName: JvMTECH\ContentSubgroups\CommandHandler\NodeTypeChangedCommandHookFactory

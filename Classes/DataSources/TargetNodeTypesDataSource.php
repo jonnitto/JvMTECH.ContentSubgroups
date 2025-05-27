@@ -3,94 +3,77 @@ declare(strict_types=1);
 
 namespace JvMTECH\ContentSubgroups\DataSources;
 
+use Neos\ContentRepository\Core\NodeType\NodeType;
+use Neos\ContentRepository\Core\Projection\ContentGraph\Node;
+use Neos\ContentRepositoryRegistry\Factory\NodeTypeManager\NodeTypeManagerFactoryInterface;
 use Neos\Flow\Annotations as Flow;
-use Neos\ContentRepository\Domain\Model\NodeType;
-use Neos\ContentRepository\Domain\Service\NodeTypeManager;
 use Neos\Flow\I18n\EelHelper\TranslationHelper;
 use Neos\Neos\Service\DataSource\AbstractDataSource;
-use Neos\ContentRepository\Domain\Model\NodeInterface;
 use Neos\Neos\Service\IconNameMappingService;
 use Neos\Utility\Arrays;
 
 class TargetNodeTypesDataSource extends AbstractDataSource
 {
-    /**
-     * @var string
-     */
+    /** @var string */
     protected static $identifier = 'jvmtech-contentsubgroups-target-nodetypes';
-
-    /**
-     * @var NodeTypeManager
-     * @Flow\Inject
-     */
-    protected NodeTypeManager $nodeTypeManager;
-
-    /**
-     * @var TranslationHelper
-     * @Flow\Inject
-     */
+    #[Flow\Inject]
+    protected NodeTypeManagerFactoryInterface $nodeTypeManagerFactory;
+    #[Flow\Inject]
     protected TranslationHelper $translationHelper;
+    #[Flow\Inject]
+    protected IconNameMappingService $iconNameMappingService;
 
-    /**
-     * @Flow\Inject
-     * @var IconNameMappingService
-     */
-    protected $iconNameMappingService;
-
-    /**
-     * @param NodeInterface $node The node that is currently edited (optional)
-     * @param array $arguments Additional arguments (key / value)
-     * @return array
-     */
-    public function getData(NodeInterface $node = null, array $arguments = [])
+    public function getData(?Node $node = null, array $arguments = []): array
     {
+        if (empty($node)) {
+            return [];
+        }
+
+        $nodeTypeManager = $this->nodeTypeManagerFactory->build($node->contentRepositoryId, []);
         $baseTag = Arrays::getValueByPath($arguments, 'contentSubgroup');
 
-        $contentCollectionNode = $this->getClosestContentCollection($node);
-
-        $nodeTypes = $this->nodeTypeManager->getNodeTypes(false);
+        $nodeTypes = $nodeTypeManager->getNodeTypes(false);
 
         // Search for NodeType Groups...
 
-        $groupNodeTypes = array_filter($nodeTypes, function (NodeType $nodeType) use ($baseTag) {
-            $tag = Arrays::getValueByPath($nodeType->getProperties(), 'targetNodeTypeName.ui.inspector.editorOptions.dataSourceAdditionalData.contentSubgroup');
-            if (!$tag) {
-                return false;
-            }
-
-            return true;
+        /** @var NodeType[] $groupNodeTypes */
+        $groupNodeTypes = array_filter($nodeTypes, function (NodeType $nodeType) {
+            return !!Arrays::getValueByPath(
+                $nodeType->getProperties(),
+                'targetNodeTypeName.ui.inspector.editorOptions.dataSourceAdditionalData.contentSubgroup',
+            );
         });
 
         $groupNodeTypes = array_map(function (NodeType $nodeType) {
-            return [
+            $array = [
                 'label' => $this->translationHelper->translate($nodeType->getLabel()) ?: $nodeType->getLabel(),
-                'tag' => Arrays::getValueByPath($nodeType->getProperties(), 'targetNodeTypeName.ui.inspector.editorOptions.dataSourceAdditionalData.contentSubgroup'),
+                'tag' => Arrays::getValueByPath(
+                    $nodeType->getProperties(),
+                    'targetNodeTypeName.ui.inspector.editorOptions.dataSourceAdditionalData.contentSubgroup',
+                ),
             ];
+            return $array;
         }, $groupNodeTypes);
 
         // Use tag as array key...
 
         $groups = array_combine(array_column($groupNodeTypes, 'tag'), $groupNodeTypes);
-
         // Search for NodeType Subgroups...
 
-        $subNodeTypes = array_filter($nodeTypes, function (NodeType $nodeType) use ($baseTag, $contentCollectionNode) {
-            // if (!$contentCollectionNode->isNodeTypeAllowedAsChildNode($nodeType)) {
-            //     return false;
-            // }
-
+        $subNodeTypes = array_filter($nodeTypes, function (NodeType $nodeType) use ($baseTag) {
             $tags = Arrays::getValueByPath($nodeType->getOptions(), 'contentSubgroup.tags');
             if (!$tags) {
                 return false;
             }
 
-            return $baseTag ? in_array($baseTag, $tags) : true;
+            return !$baseTag || in_array($baseTag, $tags);
         });
 
         $subNodeTypes = array_map(function (NodeType $nodeType) {
+
             return [
                 'label' => $nodeType->getLabel(),
-                'value' => $nodeType->getName(),
+                'value' => $nodeType->name->value,
                 'tags' => Arrays::getValueByPath($nodeType->getOptions(), 'contentSubgroup.tags') ?: [],
                 'icon' => $this->iconNameMappingService->convert($nodeType->getConfiguration('ui.icon')),
             ];
@@ -111,20 +94,5 @@ class TargetNodeTypesDataSource extends AbstractDataSource
         }
 
         return $groupedOptions;
-    }
-
-    /**
-     * @param NodeInterface $node
-     * @return NodeInterface
-     */
-    protected function getClosestContentCollection(NodeInterface $node)
-    {
-        do {
-            if ($node->getNodeType()->isOfType('Neos.Neos:ContentCollection') && !$node->getNodeType()->isOfType('Neos.Neos:Content')) {
-                break;
-            }
-        } while ($node = $node->findParentNode());
-
-        return $node;
     }
 }
