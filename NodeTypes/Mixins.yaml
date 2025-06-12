@@ -3,8 +3,7 @@
   options:
     nodeCreationHandlers:
       contentSubgroups:
-        position: 'after creationDialogProperties'
-        nodeCreationHandler: 'JvMTECH\ContentSubgroups\NodeCreationHandler\NodeTypeNodeCreationHandler'
+        factoryClassName: 'JvMTECH\ContentSubgroups\NodeCreationHandler\NodeTypeNodeCreationHandlerFactory'
   properties:
     targetNodeTypeName:
       type: string
